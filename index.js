@@ -1,13 +1,16 @@
 const { Client, GatewayIntentBits, Events } = require('discord.js');
 const { joinVoiceChannel, createAudioPlayer, createAudioResource, StreamType, NoSubscriberBehavior } = require('@discordjs/voice');
 const { spawn } = require('child_process');
-
 const config = {
-    token: process.env.DISCORD_TOKEN,
+    token: process.env.DISCORD_TOKEN ? process.env.DISCORD_TOKEN.trim() : null,
     channelId: process.env.CHANNEL_ID,
     streamUrl: process.env.STREAM_URL
 };
 
+console.log(">>> Revisando Token... ¿Existe?:", config.token ? "SÍ" : "NO");
+if (config.token) {
+    console.log(">>> Primeros 5 caracteres del token:", config.token.substring(0, 5));
+}
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates] });
 const player = createAudioPlayer({ behaviors: { noSubscriber: NoSubscriberBehavior.Play } });
 let connection = null;
