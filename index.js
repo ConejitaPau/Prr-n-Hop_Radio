@@ -3,7 +3,7 @@ const { joinVoiceChannel, createAudioPlayer, createAudioResource, StreamType, No
 const { spawn } = require('child_process');
 
 const config = {
-    token: token: process.env.DISCORD_TOKEN,
+    token: process.env.DISCORD_TOKEN,
     channelId: process.env.CHANNEL_ID,
     streamUrl: process.env.STREAM_URL
 };
