@@ -1,55 +1,58 @@
 const { Client, GatewayIntentBits } = require('discord.js');
 const { joinVoiceChannel, createAudioPlayer, createAudioResource, StreamType, AudioPlayerStatus } = require('@discordjs/voice');
-const dns = require('dns');
+const http = require('http');
 
-// --- PARCHE DE DNS PARA HUGGING FACE ---
-dns.setServers(['8.8.8.8', '8.8.4.4']); 
+// --- SERVIDOR WEB PARA REPLIT ---
+// Esto evita que Replit apague el bot a los pocos minutos
+http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Prr n Hop Radio está en línea! 🐾');
+}).listen(3000);
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates] });
+const client = new Client({ 
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates] 
+});
 
-// Extraemos las variables de entorno
-const TOKEN = process.env.DISCORD_TOKEN;
+const STREAM_URL = process.env.STREAM_URL; // URL de ZenoFM
 const CHANNEL_ID = process.env.CHANNEL_ID;
-const STREAM_URL = process.env.STREAM_URL;
 
 client.on('ready', () => {
-    console.log(`>>> [SISTEMA]: ${client.user.tag} activo usando Variables de Entorno.`);
+    console.log(`>>> [SISTEMA]: ${client.user.tag} ha despertado en Replit. 🐾`);
     
-    // Buscamos el canal por el ID de la variable
     const channel = client.channels.cache.get(CHANNEL_ID);
-    
-    if (!channel) {
-        return console.error(">>> [ERROR]: No se encontró el canal de voz. Revisa el CHANNEL_ID.");
-    }
+    if (!channel) return console.error(">>> [ERROR]: No encontré el ID del canal de voz.");
 
     const connection = joinVoiceChannel({
         channelId: channel.id,
         guildId: channel.guild.id,
         adapterCreator: channel.guild.voiceAdapterCreator,
-        selfDeaf: true,
     });
 
     const player = createAudioPlayer();
-    const resource = createAudioResource(STREAM_URL, {
-        inputType: StreamType.Arbitrary,
-        inlineVolume: true
-    });
 
-    if (resource.volume) resource.volume.setVolume(0.8);
-    
-    player.play(resource);
+    const playStream = () => {
+        const resource = createAudioResource(STREAM_URL, {
+            inputType: StreamType.Arbitrary,
+            inlineVolume: true
+        });
+        if (resource.volume) resource.volume.setVolume(0.8);
+        player.play(resource);
+        console.log(">>> [RADIO]: Reproduciendo stream de ZenoFM... 🎧🟢");
+    };
+
+    playStream();
     connection.subscribe(player);
 
-    player.on(AudioPlayerStatus.Playing, () => console.log(">>> [RADIO]: ¡Aro verde activo! 🐾🟢"));
-    
+    // Si el reproductor se detiene por error, intenta reconectar en 5 segundos
     player.on('error', error => {
         console.error(">>> [ERROR STREAM]:", error.message);
-        // Re-intento automático
-        setTimeout(() => {
-            const newResource = createAudioResource(STREAM_URL, { inputType: StreamType.Arbitrary });
-            player.play(newResource);
-        }, 5000);
+        setTimeout(playStream, 5000);
+    });
+
+    player.on(AudioPlayerStatus.Idle, () => {
+        console.log(">>> [RADIO]: Stream inactivo, reintentando...");
+        playStream();
     });
 });
 
-client.login(TOKEN);
+client.login(process.env.DISCORD_TOKEN);
