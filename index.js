@@ -1,44 +1,44 @@
 const { Client, GatewayIntentBits } = require('discord.js');
-const { joinVoiceChannel, createAudioPlayer, createAudioResource, StreamType, AudioPlayerStatus, VoiceConnectionStatus } = require('@discordjs/voice');
+const { joinVoiceChannel, createAudioPlayer, createAudioResource, StreamType, AudioPlayerStatus } = require('@discordjs/voice');
+const ffmpeg = require('ffmpeg-static');
 const http = require('http');
 
+// Mantenemos vivo el Replit
 http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Radio PnH Online! 🐾');
+    res.write('Radio Online! 🐾');
+    res.end();
 }).listen(3000);
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates] });
 
 client.on('ready', () => {
-    console.log(`>>> [SISTEMA]: ${client.user.tag} activo en Replit. 🐾`);
+    console.log(`>>> [SISTEMA]: ${client.user.tag} listo. 🐾`);
     
     const channel = client.channels.cache.get(process.env.CHANNEL_ID);
-    if (!channel) return console.error(">>> [ERROR]: ID de canal no encontrado.");
-
     const connection = joinVoiceChannel({
         channelId: channel.id,
         guildId: channel.guild.id,
         adapterCreator: channel.guild.voiceAdapterCreator,
-        selfDeaf: false // Importante para que no parezca que no escucha
     });
 
     const player = createAudioPlayer();
+    connection.subscribe(player);
 
     const playStream = () => {
-        console.log(">>> [RADIO]: Conectando flujo de ZenoFM... 🎧");
+        // LA LÍNEA MÁGICA: Usamos ffmpeg para forzar el audio
         const resource = createAudioResource(process.env.STREAM_URL, {
             inputType: StreamType.Arbitrary,
             inlineVolume: true
         });
+
         if (resource.volume) resource.volume.setVolume(0.8);
         player.play(resource);
-        connection.subscribe(player);
     };
 
     playStream();
 
     player.on('stateChange', (old, newState) => {
-        console.log(`>>> [AUDIO]: Estado actual: ${newState.status} 🟢`);
+        console.log(`>>> [AUDIO]: El bot está ${newState.status} 🟢`);
     });
 
     player.on('error', error => {
