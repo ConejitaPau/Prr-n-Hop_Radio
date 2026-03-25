@@ -1,5 +1,5 @@
 const { Client, GatewayIntentBits } = require('discord.js');
-const { joinVoiceChannel, createAudioPlayer, createAudioResource, StreamType, AudioPlayerStatus } = require('@discordjs/voice');
+const { joinVoiceChannel, createAudioPlayer, createAudioResource, StreamType, AudioPlayerStatus, VoiceConnectionStatus } = require('@discordjs/voice');
 const http = require('http');
 
 // --- SERVIDOR WEB PARA REPLIT ---
@@ -19,7 +19,7 @@ client.on('ready', () => {
     console.log(`>>> [SISTEMA]: ${client.user.tag} ha despertado en Replit. 🐾`);
     
     const channel = client.channels.cache.get(CHANNEL_ID);
-    if (!channel) return console.error(">>> [ERROR]: ID del canal no encontrado.");
+    if (!channel) return console.error(">>> [ERROR]: ID del canal no encontrado en Discord.");
 
     const connection = joinVoiceChannel({
         channelId: channel.id,
@@ -27,10 +27,17 @@ client.on('ready', () => {
         adapterCreator: channel.guild.voiceAdapterCreator,
     });
 
+    // Sensor de conexión de voz
+    connection.on(VoiceConnectionStatus.Ready, () => {
+        console.log(">>> [VOZ]: Conexión establecida con el canal de voz. 🔊");
+    });
+
     const player = createAudioPlayer();
 
     const playStream = () => {
         try {
+            console.log(">>> [RADIO]: Intentando inyectar audio de ZenoFM... 🎧");
+            
             const resource = createAudioResource(STREAM_URL, {
                 inputType: StreamType.Arbitrary,
                 inlineVolume: true
@@ -39,26 +46,29 @@ client.on('ready', () => {
             if (resource.volume) resource.volume.setVolume(0.85);
             
             player.play(resource);
-            console.log(">>> [RADIO]: ¡Enviando señal de audio! 🎧🟢");
+            connection.subscribe(player);
         } catch (error) {
-            console.error(">>> [ERROR]: Fallo al crear el recurso:", error);
-            setTimeout(playStream, 5000); // Reintento en 5 segundos
+            console.error(">>> [ERROR AL REPRODUCIR]:", error);
+            setTimeout(playStream, 5000);
         }
     };
 
     playStream();
-    connection.subscribe(player);
 
-    // Si hay un error en el reproductor, reiniciamos el flujo
-    player.on('error', error => {
-        console.error(">>> [ERROR STREAM]:", error.message);
-        setTimeout(playStream, 5000);
+    // --- SENSORES DE ESTADO DEL REPRODUCTOR ---
+    player.on('stateChange', (oldState, newState) => {
+        console.log(`>>> [ESTADO]: El audio pasó de ${oldState.status} a ${newState.status} 🟢`);
+        
+        // Si el audio se detiene por error, lo forzamos a reiniciar
+        if (newState.status === AudioPlayerStatus.Idle) {
+            console.log(">>> [RADIO]: Audio en pausa o terminado, reiniciando flujo...");
+            playStream();
+        }
     });
 
-    // Si se queda inactivo por parpadeo de internet, reconectar
-    player.on(AudioPlayerStatus.Idle, () => {
-        console.log(">>> [RADIO]: Stream inactivo, reconectando...");
-        playStream();
+    player.on('error', error => {
+        console.error(">>> [ERROR CRÍTICO]: Falló el motor de audio:", error.message);
+        setTimeout(playStream, 5000);
     });
 });
 
